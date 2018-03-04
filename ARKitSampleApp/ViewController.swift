@@ -15,7 +15,6 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     // Views
     @IBOutlet var sceneView: ARSCNView!
     // Private properties
-    private var scene: SCNScene!
     private var ball = SCNNode()
     private var box = SCNNode()
     // Constants
@@ -29,7 +28,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         configureSceneView()
         configureRootNode()
         configureChildNodes()
-        scene.rootNode.addChildNode(createLightNode())
+        addLightNode()
+        addGestureRecognizer()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -48,18 +48,17 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         sceneView.delegate = self
         sceneView.showsStatistics = true
         if let mainScene = SCNScene(named: mainSceneName){
-            scene = mainScene
-            sceneView.scene = scene
+            sceneView.scene = mainScene
         }
     }
     
     private func configureRootNode(){
-        let node = scene.rootNode.childNode(withName: rootNodeName, recursively: false)
+        let node = sceneView.scene.rootNode.childNode(withName: rootNodeName, recursively: false)
         node?.position = SCNVector3(0, -5, -5)
     }
     
     private func configureChildNodes(){
-        self.sceneView.scene.rootNode.enumerateChildNodes { (node, _) in
+        sceneView.scene.rootNode.enumerateChildNodes { (node, _) in
             if node.name == ballNodeName {
                 ball = node
                 updateBallNode()
@@ -70,9 +69,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         }
     }
     
-    private func updateConfiguration(){
-        let configuration = ARWorldTrackingConfiguration()
-        sceneView.session.run(configuration)
+    private func addLightNode(){
+        sceneView.scene.rootNode.addChildNode(createLightNode())
     }
     
     private func createLightNode() -> SCNNode {
@@ -86,6 +84,37 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         let light = SCNLight()
         light.type = SCNLight.LightType.omni
         return light
+    }
+    
+    private func addGestureRecognizer(){
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(sender:)))
+        sceneView.addGestureRecognizer(tapRecognizer)
+    }
+    
+    @objc func handleTap(sender: UITapGestureRecognizer){
+        guard let sceneView = sender.view as? ARSCNView else { return }
+        let touchLocation = sender.location(in: sceneView)
+        let hitTestResults = sceneView.hitTest(touchLocation, options: [:])
+        if !hitTestResults.isEmpty {
+            performActionsOnTappedObjects(hitTestResults)
+        }
+    }
+    
+    private func performActionsOnTappedObjects(_ results: [SCNHitTestResult]){
+        for result in results {
+            if result.node == ball {
+                makeBallMoving()
+            }
+        }
+    }
+    
+    private func makeBallMoving(){
+        ball.physicsBody?.applyForce(SCNVector3(0,10,0), asImpulse: true)
+    }
+    
+    private func updateConfiguration(){
+        let configuration = ARWorldTrackingConfiguration()
+        sceneView.session.run(configuration)
     }
     
     private func updateBallNode(){
